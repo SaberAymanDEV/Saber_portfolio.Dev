@@ -36,11 +36,13 @@ export default function About({ lang, profile }: AboutProps) {
           {/* Biography texts */}
           <div className="space-y-6 text-slate-600 dark:text-slate-300 leading-relaxed font-sans text-sm md:text-base">
             <p className="border-l-4 border-blue-600 pl-4 rtl:border-l-0 rtl:border-r-4 rtl:pr-4 font-medium text-slate-800 dark:text-slate-100 text-lg md:text-xl leading-relaxed">
-              {lang === "ar" ? profile.bioAr.split("\n")[0] : profile.bioEn.split("\n")[0]}
+              {lang === "ar" ? (profile.bioAr || "").split("\n")[0] || "" : (profile.bioEn || "").split("\n")[0] || ""}
             </p>
-            <p className="text-slate-600 dark:text-slate-300 text-sm md:text-base">
-              {lang === "ar" ? profile.bioAr.split("\n")[1] : profile.bioEn.split("\n")[1]}
-            </p>
+            {((lang === "ar" ? profile.bioAr : profile.bioEn) || "").includes("\n") && (
+              <p className="text-slate-600 dark:text-slate-300 text-sm md:text-base">
+                {lang === "ar" ? (profile.bioAr || "").split("\n")[1] || "" : (profile.bioEn || "").split("\n")[1] || ""}
+              </p>
+            )}
             
             {/* Short education badge */}
             <div className="flex items-center gap-3 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-850 rounded-2xl p-4 mt-6">
