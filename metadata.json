@@ -1,0 +1,10 @@
+{
+  "name": "Remix: Saber Ayman Saber Portfolio",
+  "description": "Bilingual (EN/AR) interactive portfolio website featuring an intelligent AI chatbot and backend CMS admin dashboard for Saber Ayman Saber.",
+  "requestFramePermissions": [
+    "microphone"
+  ],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

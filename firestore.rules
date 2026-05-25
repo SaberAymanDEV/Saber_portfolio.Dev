@@ -1,0 +1,21 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // 1. Global Safety Net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // 2. Global Helper Functions
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    // 3. Match collection portfolio_data
+    match /portfolio_data/{docId} {
+      allow get: if isValidId(docId);
+      allow create, update: if isValidId(docId);
+      allow delete: if false; // Safeguard against remote deletion
+    }
+  }
+}

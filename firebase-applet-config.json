@@ -1,0 +1,9 @@
+{
+  "projectId": "saber-dev-portfolio",
+  "appId": "1:371662958059:web:2bf949756bc530d5affdae",
+  "apiKey": "AIzaSyD_kLS0pWmL9zYJoiiesS6AePtbzwQJ2KU",
+  "authDomain": "saber-dev-portfolio.firebaseapp.com",
+  "firestoreDatabaseId": "(default)",
+  "storageBucket": "saber-dev-portfolio.firebasestorage.app",
+  "messagingSenderId": "371662958059"
+}

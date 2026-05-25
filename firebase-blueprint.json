@@ -1,0 +1,61 @@
+{
+  "entities": {
+    "PortfolioState": {
+      "title": "Portfolio State",
+      "description": "The unified state containing all portfolio modules including profile, skills, services, projects, certificates, testimonials, blogs, messages, leads, bookings, and admin credentials.",
+      "type": "object",
+      "properties": {
+        "profile": {
+          "type": "object",
+          "description": "Ayman Saber personal details, links, and biographies"
+        },
+        "skills": {
+          "type": "array",
+          "description": "Key tech stack items and skill levels"
+        },
+        "services": {
+          "type": "array",
+          "description": "Professional services offered"
+        },
+        "projects": {
+          "type": "array",
+          "description": "Built projects with images, links, tags, and metrics"
+        },
+        "certificates": {
+          "type": "array",
+          "description": "Verified certifications"
+        },
+        "testimonials": {
+          "type": "array",
+          "description": "Client reviews and feedback"
+        },
+        "blogs": {
+          "type": "array",
+          "description": "Informational blog posts"
+        },
+        "messages": {
+          "type": "array",
+          "description": "User submit contact messages"
+        },
+        "leads": {
+          "type": "array",
+          "description": "Acquired leads and newsletter submissions"
+        },
+        "bookings": {
+          "type": "array",
+          "description": "Client discovery calls and schedule bookings"
+        },
+        "adminCredentials": {
+          "type": "object",
+          "description": "Admin login username and password credentials hash"
+        }
+      }
+    }
+  },
+  "firestore": {
+    "/portfolio_data/{docId}": {
+      "schema": "PortfolioState",
+      "description": "The collection holding secure portfolio state items, mirroring the server cached structures."
+    }
+  }
+}
