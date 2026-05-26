@@ -6,8 +6,8 @@ import dotenv from "dotenv";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import helmet from "helmet";
-import { initializeApp } from "firebase/app";
-import { getFirestore, doc, getDoc, setDoc, getDocFromServer } from "firebase/firestore";
+import admin from "firebase-admin";
+import { getFirestore } from "firebase-admin/firestore";
 
 dotenv.config();
 
@@ -78,17 +78,78 @@ function handleFirestoreError(error: unknown, operationType: OperationType, path
 }
 
 try {
+  let isInitialized = false;
+  let targetDatabaseId: string | undefined = undefined;
+
+  // 1. Resolve custom database ID if specified
   const configPath = path.join(process.cwd(), "firebase-applet-config.json");
   if (fs.existsSync(configPath)) {
-    const firebaseConfig = JSON.parse(fs.readFileSync(configPath, "utf-8"));
-    firebaseApp = initializeApp(firebaseConfig);
-    firebaseDb = getFirestore(firebaseApp, firebaseConfig.firestoreDatabaseId);
-    console.log("[DATABASE] Firebase SDK initialized successfully. Active Firestore target database ID:", firebaseConfig.firestoreDatabaseId);
+    try {
+      const parsedConfig = JSON.parse(fs.readFileSync(configPath, "utf-8"));
+      if (parsedConfig && parsedConfig.firestoreDatabaseId && parsedConfig.firestoreDatabaseId !== "(default)") {
+        targetDatabaseId = parsedConfig.firestoreDatabaseId;
+      }
+    } catch (e) {
+      // Ignored
+    }
+  }
+  if (process.env.FIREBASE_DATABASE_ID) {
+    targetDatabaseId = process.env.FIREBASE_DATABASE_ID;
+  }
+  if (targetDatabaseId && targetDatabaseId !== "(default)") {
+    process.env.FIRESTORE_DATABASE_ID = targetDatabaseId;
+    console.log("[DATABASE] Configuring active Firestore target database ID:", targetDatabaseId);
+  }
+
+  // 2. High-priority checks: Service Account (usually in production e.g. Vercel)
+  if (process.env.FIREBASE_PROJECT_ID && process.env.FIREBASE_CLIENT_EMAIL && process.env.FIREBASE_PRIVATE_KEY) {
+    console.log("[DATABASE] Initializing Firebase Admin SDK via Service Account Environment Variables.");
+    admin.initializeApp({
+      credential: admin.credential.cert({
+        projectId: process.env.FIREBASE_PROJECT_ID,
+        clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
+        privateKey: process.env.FIREBASE_PRIVATE_KEY.replace(/\\n/g, '\n'),
+      })
+    });
+    firebaseDb = getFirestore();
+    isInitialized = true;
+  } 
+
+  // 3. Fallback checks: Local JSON config from AI Studio's auto-provisioning
+  if (!isInitialized) {
+    if (fs.existsSync(configPath)) {
+      try {
+        const parsedConfig = JSON.parse(fs.readFileSync(configPath, "utf-8"));
+        console.log("[DATABASE] Initializing Firebase Admin SDK from local auto-provision config:", parsedConfig.projectId);
+        
+        admin.initializeApp({
+          projectId: parsedConfig.projectId
+        });
+        firebaseDb = getFirestore();
+        isInitialized = true;
+      } catch (e) {
+        console.error("[DATABASE] Error parsing firebase-applet-config.json:", e);
+      }
+    }
+  }
+
+  // 4. Fallback to basic Project ID (for local developer or implicit default authentication)
+  if (!isInitialized && process.env.FIREBASE_PROJECT_ID) {
+    console.log("[DATABASE] Initializing Firebase Admin SDK with project ID only.");
+    admin.initializeApp({
+      projectId: process.env.FIREBASE_PROJECT_ID
+    });
+    firebaseDb = getFirestore();
+    isInitialized = true;
+  }
+
+  if (isInitialized) {
+    console.log("[DATABASE] Firebase Admin SDK initialized successfully.");
   } else {
-    console.warn("[DATABASE] firebase-applet-config.json not found. Running in local fallback state.");
+    console.warn("[DATABASE] Firebase configuration credentials not found. Running in local fallback state.");
   }
 } catch (err) {
-  console.error("[DATABASE] Firebase initialization has failed. Running with local backups.", err);
+  console.error("[DATABASE] Firebase Admin initialization has failed. Running with local backups.", err);
 }
 
 
@@ -168,8 +229,8 @@ function writeDB(data: any) {
 
   // Handle remote background write-through sync if Firebase is active
   if (firebaseDb) {
-    const docRef = doc(firebaseDb, "portfolio_data", "v1_portfolio_state");
-    setDoc(docRef, { data: data, updatedAt: new Date().toISOString() })
+    const docRef = firebaseDb.doc("portfolio_data/v1_portfolio_state");
+    docRef.set({ data: data, updatedAt: new Date().toISOString() })
       .then(() => {
         console.log("[DATABASE] Firebase Firestore successfully synchronized.");
       })
@@ -194,10 +255,26 @@ readDB();
 const ADMIN_USER = process.env.ADMIN_USERNAME || "saber";
 // BCrypt hash of "saber_admin" as secure fallback
 const FALLBACK_PASSWORD_HASH = "$2b$10$zlfvL2KBl78AL/I85FmkiuzEFQb11tq25rSaoR8tE788Yi72f1tcq";
-const ADMIN_PASSWORD_HASH = process.env.ADMIN_PASSWORD_HASH || FALLBACK_PASSWORD_HASH;
+let ADMIN_PASSWORD_HASH = process.env.ADMIN_PASSWORD_HASH || FALLBACK_PASSWORD_HASH;
+
+// Support plain text password directly in environment variables for simpler Vercel deployment
+if (process.env.ADMIN_PASSWORD) {
+  ADMIN_PASSWORD_HASH = bcrypt.hashSync(process.env.ADMIN_PASSWORD, 10);
+}
+
 const JWT_SECRET = process.env.JWT_SECRET || "saber-devsecops-jwt-protection-salt-2026";
 
 function getAdminCredentials() {
+  // If environment variables are explicitly provided (e.g., on Vercel), they MUST take precedence over database files to prevent stale auth blockouts.
+  if (process.env.ADMIN_USERNAME || process.env.ADMIN_PASSWORD || process.env.ADMIN_PASSWORD_HASH) {
+    return {
+      username: process.env.ADMIN_USERNAME || ADMIN_USER,
+      passwordHash: process.env.ADMIN_PASSWORD 
+        ? bcrypt.hashSync(process.env.ADMIN_PASSWORD, 10) 
+        : (process.env.ADMIN_PASSWORD_HASH || ADMIN_PASSWORD_HASH)
+    };
+  }
+
   const db = readDB();
   if (db.adminCredentials && db.adminCredentials.username && db.adminCredentials.passwordHash) {
     return {
@@ -987,6 +1064,12 @@ Could you elaborate slightly on your core target audience or your preferred go-t
   res.json({ reply });
 }
 
+// Global error handling middleware to surface 500 errors
+app.use((err: any, req: any, res: any, next: any) => {
+  console.error("EXPRESS UNHANDLED ERROR CONTROLLER:", err);
+  res.status(500).json({ error: err.message, stack: err.stack, details: err.toString() });
+});
+
 // Remote database initializer (supports lifetime persistent Firebase Firestore free-tier backend)
 async function initRemoteDatabase() {
   if (!firebaseDb) {
@@ -998,7 +1081,8 @@ async function initRemoteDatabase() {
     console.log("[DATABASE] Testing remote link with Firebase Firestore...");
     // Validate connection to Firestore as per critical skill instructions
     try {
-      await getDocFromServer(doc(firebaseDb, "test", "connection"));
+      const testDocRef = firebaseDb.doc("test/connection");
+      await testDocRef.get();
       console.log("[DATABASE] Firebase Firestore online verification passed.");
     } catch (connErr: any) {
       if (connErr instanceof Error && connErr.message.includes("the client is offline")) {
@@ -1010,24 +1094,28 @@ async function initRemoteDatabase() {
     }
 
     console.log("[DATABASE] Initiating secure remote database sync with Firebase Firestore...");
-    const docRef = doc(firebaseDb, "portfolio_data", "v1_portfolio_state");
-    const docSnap = await getDoc(docRef);
+    const docRef = firebaseDb.doc("portfolio_data/v1_portfolio_state");
+    const docSnap = await docRef.get();
     
-    if (docSnap.exists()) {
+    if (docSnap.exists) {
       const docData = docSnap.data();
       if (docData && docData.data) {
         console.log("[DATABASE] Firebase Firestore remote state loaded successfully. Synchronizing local cache with cloud records.");
         dbCache = docData.data;
-        // Sync cache locally to file
-        const tempPath = `${DB_PATH}.tmp`;
-        fs.mkdirSync(path.join(process.cwd(), "data"), { recursive: true });
-        fs.writeFileSync(tempPath, JSON.stringify(dbCache, null, 2), "utf-8");
-        fs.renameSync(tempPath, DB_PATH);
+        // Sync cache locally to file (gracefully handle read-only filesystems in serverless like Vercel)
+        try {
+          const tempPath = `${DB_PATH}.tmp`;
+          fs.mkdirSync(path.join(process.cwd(), "data"), { recursive: true });
+          fs.writeFileSync(tempPath, JSON.stringify(dbCache, null, 2), "utf-8");
+          fs.renameSync(tempPath, DB_PATH);
+        } catch (writeError) {
+          console.warn("[DATABASE] Could not write localized copy of Firestore cache to read-only filesystem (expected on Vercel deployments):", writeError);
+        }
       }
     } else {
       console.log("[DATABASE] No remote record found in Firestore. Syncing initial state from local template onto cloud storage...");
       const currentLocal = readDB();
-      await setDoc(docRef, { data: currentLocal, updatedAt: new Date().toISOString() });
+      await docRef.set({ data: currentLocal, updatedAt: new Date().toISOString() });
       console.log("[DATABASE] Successfully seeded initial portfolio data to Firestore active database!");
     }
     console.log("[DATABASE] Firebase active persistence pipeline fully operational.");
@@ -1036,26 +1124,37 @@ async function initRemoteDatabase() {
   }
 }
 
-// Lazy initialization middleware for Vercel/serverless environments
+// Lazy initialization middleware for Vercel/serverless environments (fully non-blocking)
 let isDbInitialized = false;
-app.use(async (req, res, next) => {
-  if (!isDbInitialized && firebaseDb) {
-    try {
-      await initRemoteDatabase();
-      isDbInitialized = true;
-    } catch (err) {
-      console.error("[DATABASE] Error during lazy database initialization:", err);
-    }
+let isDbInitializing = false;
+app.use((req, res, next) => {
+  if (!isDbInitialized && firebaseDb && !isDbInitializing) {
+    isDbInitializing = true;
+    initRemoteDatabase()
+      .then(() => {
+        isDbInitialized = true;
+      })
+      .catch((err) => {
+        console.error("[DATABASE] Background lazy database initialization failed:", err);
+      })
+      .finally(() => {
+        isDbInitializing = false;
+      });
   }
   next();
 });
 
 // 8. SERVE THE CLIENT APPLICATION
 async function startServer() {
-  // Synchronously seed from local file, then supercharge from Remote DB if not in serverless context
+  // Synchronously seed from local file, then supercharge from Remote DB in background if not in serverless context
   if (!process.env.VERCEL) {
-    await initRemoteDatabase();
-    isDbInitialized = true;
+    initRemoteDatabase()
+      .then(() => {
+        isDbInitialized = true;
+      })
+      .catch((err) => {
+        console.error("[DATABASE] In-situ startup remote database initialization failed:", err);
+      });
   }
 
   if (process.env.NODE_ENV !== "production" && !process.env.VERCEL) {

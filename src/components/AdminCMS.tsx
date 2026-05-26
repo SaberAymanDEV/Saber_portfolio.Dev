@@ -50,6 +50,7 @@ export default function AdminCMS({ lang, onClose, portfolioData, refreshData }: 
   // CRM Bookings
   const [bookings, setBookings] = useState<any[]>([]);
   const [isLoadingCRM, setIsLoadingCRM] = useState(false);
+  const [customCategoryInputs, setCustomCategoryInputs] = useState<Record<string, string>>({});
 
   const [saving, setSaving] = useState(false);
   const [saveStatus, setSaveStatus] = useState({ success: false, message: "" });
@@ -932,30 +933,120 @@ export default function AdminCMS({ lang, onClose, portfolioData, refreshData }: 
                             }}
                           />
                         </div>
-                        <div>
-                          <label className="block text-xs text-slate-500 mb-1">Category Category</label>
-                          <select
-                            className="w-full rounded-xl bg-slate-900 border border-slate-800 p-2 text-sm"
-                            value={proj.category}
-                            onChange={(e) => {
-                              const updated = projects.map(p => p.id === proj.id ? { ...p, category: e.target.value as any } : p);
-                              setProjects(updated);
-                            }}
-                          >
-                            <option value="SaaS">SaaS Platform</option>
-                            <option value="AI Platforms">AI Platform</option>
-                            <option value="Dashboards">Analytics Dashboard</option>
-                            <option value="LMS">LMS Portal</option>
-                            <option value="E-commerce">E-Commerce</option>
-                            <option value="Booking Systems">Booking Engine</option>
-                            <option value="Company Websites">SME / Corporate Web</option>
-                          </select>
-                        </div>
+                        {(() => {
+                          const baseCategories = ["SaaS", "AI Platforms", "Dashboards", "LMS", "E-commerce", "Booking Systems", "Company Websites"];
+                          const dynamicCategories = projects.reduce<string[]>((acc, p) => {
+                            if (p.category) {
+                              p.category.split(",").forEach(cat => {
+                                const trimmed = cat.trim();
+                                if (trimmed && !acc.includes(trimmed)) {
+                                  acc.push(trimmed);
+                                }
+                              });
+                            }
+                            return acc;
+                          }, []);
+                          const availableCategories = Array.from(new Set([...baseCategories, ...dynamicCategories]));
+                          const projCats = proj.category ? proj.category.split(",").map(c => c.trim()).filter(Boolean) : [];
+
+                          return (
+                            <div className="col-span-1 md:col-span-2 bg-slate-900/60 border border-slate-800 p-4 rounded-xl space-y-3">
+                              <div className="flex justify-between items-center">
+                                <label className="block text-xs font-bold uppercase tracking-wider text-slate-400">
+                                  {lang === "ar" ? "تصنيفات المنصات والأنظمة (اختر أكثر من تصنيف)" : "Platform Categories (Select Multiple)"}
+                                </label>
+                                <span className="text-[10px] text-blue-400 bg-blue-900/15 border border-blue-900/30 px-2 py-0.5 rounded font-mono">
+                                  {projCats.length} {lang === "ar" ? "محددة" : "Selected"}
+                                </span>
+                              </div>
+                              
+                              {/* Categories checklist list options */}
+                              <div className="flex flex-wrap gap-2 py-1">
+                                {availableCategories.map((cat) => {
+                                  const isSelected = projCats.includes(cat);
+                                  return (
+                                    <button
+                                      type="button"
+                                      key={cat}
+                                      onClick={() => {
+                                        let updatedCats;
+                                        if (isSelected) {
+                                          updatedCats = projCats.filter(c => c !== cat);
+                                        } else {
+                                          updatedCats = [...projCats, cat];
+                                        }
+                                        const updatedValue = updatedCats.join(", ");
+                                        const updated = projects.map(p => p.id === proj.id ? { ...p, category: updatedValue } : p);
+                                        setProjects(updated);
+                                      }}
+                                      className={`flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg border font-medium cursor-pointer transition-all ${
+                                        isSelected
+                                          ? "bg-blue-600/20 text-blue-300 border-blue-500/40 font-bold scale-[1.02]"
+                                          : "bg-slate-950 text-slate-400 border-slate-800 hover:text-slate-200"
+                                      }`}
+                                    >
+                                      <span className={`w-1.5 h-1.5 rounded-full ${isSelected ? "bg-blue-400 animate-pulse" : "bg-slate-700"}`}></span>
+                                      {cat}
+                                    </button>
+                                  );
+                                })}
+                              </div>
+
+                              {/* Text field input to create new category dynamically on click */}
+                              <div className="flex gap-2 items-center bg-slate-950 p-2 rounded-lg border border-slate-800 mt-2">
+                                <input
+                                  type="text"
+                                  placeholder={lang === "ar" ? "إضافة لوحة أو تصنيف جديد (مثال: تطبيقات البلوكشين)" : "Create & add a new category (e.g. Blockchain Apps)"}
+                                  className="flex-1 rounded-md bg-slate-900 border border-slate-850 px-3 py-1.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-blue-500"
+                                  value={customCategoryInputs[proj.id] || ""}
+                                  onChange={(e) => {
+                                    setCustomCategoryInputs(prev => ({ ...prev, [proj.id]: e.target.value }));
+                                  }}
+                                  onKeyDown={(e) => {
+                                    if (e.key === 'Enter') {
+                                      e.preventDefault();
+                                      const val = (customCategoryInputs[proj.id] || "").trim();
+                                      if (val && !projCats.includes(val)) {
+                                        const updatedValue = [...projCats, val].join(", ");
+                                        const updated = projects.map(p => p.id === proj.id ? { ...p, category: updatedValue } : p);
+                                        setProjects(updated);
+                                        setCustomCategoryInputs(prev => ({ ...prev, [proj.id]: "" }));
+                                      }
+                                    }
+                                  }}
+                                />
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    const val = (customCategoryInputs[proj.id] || "").trim();
+                                    if (val && !projCats.includes(val)) {
+                                      const updatedValue = [...projCats, val].join(", ");
+                                      const updated = projects.map(p => p.id === proj.id ? { ...p, category: updatedValue } : p);
+                                      setProjects(updated);
+                                      setCustomCategoryInputs(prev => ({ ...prev, [proj.id]: "" }));
+                                    }
+                                  }}
+                                  className="bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs px-3.5 py-1.5 rounded-md cursor-pointer transition-all flex items-center gap-1 shrink-0"
+                                >
+                                  ➕ {lang === "ar" ? "إضافة" : "Add"}
+                                </button>
+                              </div>
+                            </div>
+                          );
+                        })()}
                         <div>
                           <label className="block text-xs text-slate-500 mb-1">Visual Mockup Thumbnail (Image File Pick)</label>
                           <div className="flex items-center gap-3">
                             {proj.image && (
-                              <img src={proj.image} className="h-10 w-10 object-cover rounded-lg scale-100 border border-white/10" alt="Preview" />
+                              <img 
+                                src={proj.image} 
+                                className="h-10 w-10 object-cover rounded-lg scale-100 border border-white/10" 
+                                alt="Preview" 
+                                onError={(e) => {
+                                  e.currentTarget.onerror = null;
+                                  e.currentTarget.src = "https://images.unsplash.com/photo-1555066931-4365d14bab8c?auto=format&fit=crop&q=80&w=400";
+                                }}
+                              />
                             )}
                             <input
                               type="file"
@@ -1153,7 +1244,15 @@ export default function AdminCMS({ lang, onClose, portfolioData, refreshData }: 
                           />
                           <div className="flex items-center gap-3">
                             {cert.image && (
-                              <img src={cert.image} className="h-10 w-10 object-cover rounded-lg border border-white/10" alt="Prev" />
+                              <img 
+                                src={cert.image} 
+                                className="h-10 w-10 object-cover rounded-lg border border-white/10" 
+                                alt="Prev" 
+                                onError={(e) => {
+                                  e.currentTarget.onerror = null;
+                                  e.currentTarget.src = "https://images.unsplash.com/photo-1517245386807-bb43f82c33c4?auto=format&fit=crop&q=80&w=400";
+                                }}
+                              />
                             )}
                             <label
                               htmlFor={`image-upload-cert-${cert.id}`}

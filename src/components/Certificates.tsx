@@ -53,6 +53,10 @@ export default function Certificates({ lang, certificates }: CertificatesProps) 
                     className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                     referrerPolicy="no-referrer"
                     alt={cert.titleEn}
+                    onError={(e) => {
+                      e.currentTarget.onerror = null;
+                      e.currentTarget.src = "https://images.unsplash.com/photo-1517245386807-bb43f82c33c4?auto=format&fit=crop&q=80&w=400";
+                    }}
                   />
                   {/* View Overlay - desktop only */}
                   <div className="absolute inset-0 bg-slate-950/40 opacity-0 group-hover:opacity-100 transition-opacity hidden md:flex items-center justify-center backdrop-blur-xs">
@@ -126,6 +130,10 @@ export default function Certificates({ lang, certificates }: CertificatesProps) 
                   className="w-full h-full object-contain"
                   referrerPolicy="no-referrer"
                   alt={selectedCert.titleEn}
+                  onError={(e) => {
+                    e.currentTarget.onerror = null;
+                    e.currentTarget.src = "https://images.unsplash.com/photo-1517245386807-bb43f82c33c4?auto=format&fit=crop&q=80&w=800";
+                  }}
                 />
               </div>
 

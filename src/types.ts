@@ -46,7 +46,7 @@ export interface Project {
   technologies: string[];
   liveUrl: string;
   githubUrl: string;
-  category: "SaaS" | "AI Platforms" | "Dashboards" | "LMS" | "E-commerce" | "Booking Systems" | "Company Websites";
+  category: string;
   featured: boolean;
 }
 

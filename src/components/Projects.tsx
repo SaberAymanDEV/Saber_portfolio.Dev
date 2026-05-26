@@ -14,13 +14,29 @@ export default function Projects({ lang, projects }: ProjectsProps) {
 
   const t = translations[lang];
 
-  // Unique categories in database
-  const categories = ["All", "SaaS", "AI Platforms", "Dashboards", "LMS", "E-commerce"];
+  // Dynamic categories in database
+  const baseCategories = ["SaaS", "AI Platforms", "Dashboards", "LMS", "E-commerce", "Booking Systems", "Company Websites"];
+  const dynamicCategories = projects.reduce<string[]>((acc, proj) => {
+    if (proj.category) {
+      proj.category.split(",").forEach(cat => {
+        const trimmed = cat.trim();
+        if (trimmed && !acc.includes(trimmed)) {
+          acc.push(trimmed);
+        }
+      });
+    }
+    return acc;
+  }, []);
+  
+  // Combine base default categories and any custom categories created by user
+  const allUniqueCategories = Array.from(new Set([...baseCategories, ...dynamicCategories]));
+  const categories = ["All", ...allUniqueCategories];
 
   // Filter & Search Logic
   const filteredProjects = projects.filter((proj) => {
     // Category match
-    const categoryMatch = activeCategory === "All" || proj.category === activeCategory;
+    const projCategories = proj.category ? proj.category.split(",").map(c => c.trim()) : [];
+    const categoryMatch = activeCategory === "All" || projCategories.includes(activeCategory);
     
     // Keyword match
     const searchLow = searchTerm.toLowerCase();
@@ -121,11 +137,19 @@ export default function Projects({ lang, projects }: ProjectsProps) {
                     className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700 filter saturate-120"
                     referrerPolicy="no-referrer"
                     alt={proj.titleEn}
+                    onError={(e) => {
+                      e.currentTarget.onerror = null;
+                      e.currentTarget.src = "https://images.unsplash.com/photo-1555066931-4365d14bab8c?auto=format&fit=crop&q=80&w=600";
+                    }}
                   />
                   {/* Category overlay label */}
-                  <span className="absolute bottom-2.5 right-2.5 z-20 text-[8px] md:text-[9px] font-bold tracking-widest uppercase bg-slate-100 dark:bg-slate-900/80 text-slate-850 dark:text-slate-300 border border-slate-200 dark:border-white/5 px-1.5 py-0.5 md:px-2 md:py-1 rounded">
-                    {proj.category}
-                  </span>
+                  <div className="absolute bottom-2.5 right-2 text-right z-20 flex flex-wrap gap-1 justify-end max-w-[85%]">
+                    {(proj.category || "SaaS").split(",").map(c => c.trim()).filter(Boolean).map((cat) => (
+                      <span key={cat} className="text-[7.5px] md:text-[8.5px] font-extrabold tracking-widest uppercase bg-slate-100/90 dark:bg-slate-900/90 text-slate-850 dark:text-slate-100 border border-slate-200 dark:border-white/10 px-1.5 py-0.5 md:py-1 rounded shadow-sm">
+                        {cat}
+                      </span>
+                    ))}
+                  </div>
                 </div>
 
                 {/* Content body descriptors */}

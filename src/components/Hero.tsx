@@ -303,6 +303,10 @@ export default function Hero({ lang, profile, theme }: HeroProps) {
               className="w-full h-full object-cover rounded-full opacity-90 border border-slate-500/10"
               referrerPolicy="no-referrer"
               alt="Saber Ayman Saber portrait representation"
+              onError={(e) => {
+                e.currentTarget.onerror = null;
+                e.currentTarget.src = "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=400";
+              }}
             />
           </motion.div>
 

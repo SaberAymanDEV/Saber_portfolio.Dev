@@ -1,9 +1,10 @@
 {
-  "projectId": "saber-dev-portfolio",
-  "appId": "1:371662958059:web:2bf949756bc530d5affdae",
-  "apiKey": "AIzaSyD_kLS0pWmL9zYJoiiesS6AePtbzwQJ2KU",
-  "authDomain": "saber-dev-portfolio.firebaseapp.com",
-  "firestoreDatabaseId": "(default)",
-  "storageBucket": "saber-dev-portfolio.firebasestorage.app",
-  "messagingSenderId": "371662958059"
+  "projectId": "gen-lang-client-0429842299",
+  "appId": "1:1037929090512:web:81022a9c2d9b8e420e7dd5",
+  "apiKey": "AIzaSyDf5RBH9YckdHYCu6EUwdampgQfvfGUJhs",
+  "authDomain": "gen-lang-client-0429842299.firebaseapp.com",
+  "firestoreDatabaseId": "ai-studio-826df1f5-634d-4d9c-a0e8-654cfe784307",
+  "storageBucket": "gen-lang-client-0429842299.firebasestorage.app",
+  "messagingSenderId": "1037929090512",
+  "measurementId": "G-DRNLW5HC60"
 }
